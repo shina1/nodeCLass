@@ -1,72 +1,76 @@
-const fs = require('fs');
+const fs = require("fs");
+const server = require("http");
+const url = require("url");
+const slug = require("slugify");
 
-const server = require('http');
+const replaceTemplate = require("./modules/replaceTemp");
 
-const url = require('url');
+const tempOverview = fs.readFileSync(
+  `${__dirname}/1-node-farm/starter/templates/overview.html`,
+  "utf-8"
+);
 
-// const chalk = require('chalk');
+const tempProduct = fs.readFileSync(
+  `${__dirname}/1-node-farm/starter/templates/product.html`,
+  "utf-8"
+);
+const tempCard = fs.readFileSync(
+  `${__dirname}/1-node-farm/starter/templates/template_card.html`,
+  "utf-8"
+);
 
-// reading and writing file in node js with an fs module
- const textIn = fs.readFileSync('./txt/input.txt', 'utf-8');
-//  console.log(textIn);
-
- 
-// blocking synchronous way 
- const textFinal = fs.readFileSync('./txt/final.txt', 'utf-8');
-
-//  console.log(textFinal);
-
- const textOutput = `This is what we know about the avocado: ${textIn}. \n Created on ${Date.now()}`;
-
- fs.writeFileSync('./txt/output.txt', textOutput);
-
- const read = fs.readFileSync('./txt/output.txt', 'utf-8');
-
-//  console.log(read);
-
-//  Non-Blocking Asynchronous Way
-fs.readFile('./txt/start.txt', 'utf-8', (err,data1)=>{
-    fs.readFile(`./txt/${data1}.txt`, 'utf-8', (err,data2)=>{
-        // console.log(data2);
-        fs.readFile('./txt/append.txt', 'utf-8', (err,data3)=>{
-            // console.log(data3);
-            fs.writeFile('./txt/final.txt', `${data2}\n ${data3}`, 'utf-8', err=>{
-                // console.log('your file has been written');
-            });
-        });
-    });
-});
-
-// console.log('will read file ...');
+const data = fs.readFileSync(
+  `${__dirname}/1-node-farm/starter/dev-data/data.json`,
+  "utf-8"
+);
+const dataObj = JSON.parse(data);
+const slugers = dataObj.map((elements) =>
+  slug(elements.productName, { lower: true })
+);
 
 // Working on the server now
-const data = fs.readFileSync(`${__dirname}/1-node-farm/starter/dev-data/data.json`, 'utf-8');
-const dataObj = JSON.parse(data);
+const serCreated = server.createServer((req, res) => {
+  const { query, pathname } = url.parse(req.url, true);
 
-const serCreated =  server.createServer((req,res)=>{
-    const parthName = req.url;
-    if(parthName === '/overview'){
-        res.end('This is overview');
-    }else if(parthName === '/product'){
-        res.end('This is Product');
-    }else if(parthName === '/'){
-        res.end('This is landing');
-    } else if(parthName === '/api'){
-        res.writeHead(200, {'Content-type':'application/json'});
-            res.end(data);  
-    }
-     else{
-        res.writeHead(404, {
-            'Content-type':'text/html',
-            'my-own-header':'This is an error'
-        });
-        res.end('<h1>This page can not be found</h1>'); 
-    }
-    
+  // overview page
+  if (pathname === "/" || pathname === "overview") {
+    res.writeHead(200, {
+      "Content-type": "text/html",
+    });
+    const cardsHTML = dataObj
+      .map((items) => {
+        return replaceTemplate(tempCard, items);
+      })
+      .join("");
+    const output = tempOverview.replace("{%PRODUCTS_CARDS%}", cardsHTML);
+    // console.log(output);
+    res.end(output);
+    // product page
+  } else if (pathname === "/product") {
+    res.writeHead(200, {
+      "Content-type": "text/html",
+    });
+    const prod = dataObj[query.id];
+    const output = replaceTemplate(tempProduct, prod);
+    // console.log(output);
+
+    res.end(output);
+    // the api
+  } else if (pathname === "/api") {
+    res.writeHead(200, { "Content-type": "application/json" });
+    res.end(data);
+  } else {
+    //  not found
+    res.writeHead(404, {
+      "Content-type": "text/html",
+      "my-own-header": "This is an error",
+    });
+    res.end("<h1>This page can not be found</h1>");
+  }
 });
 
-serCreated.listen(3000, '127.0.0.1',()=>{
-    console.log('Listening to request on port 3000');
+serCreated.listen(3000, "127.0.0.1", () => {
+  console.log("Listening to request on port 3000");
 });
 
 // routing
